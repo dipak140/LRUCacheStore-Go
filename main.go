@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/dipak140/LRUCacheStore-Go/internal"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,10 +16,18 @@ func main() {
 
 	r := gin.Default()
 
-	r.GET("/cache/:key", internal.GetFromCache)
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"*"} // Replace with your frontend URL
+	config.AllowHeaders = []string{"Origin", "Content-Type"}
+	config.AllowMethods = []string{"GET", "POST"}
+	r.Use(cors.New(config))
 
-	r.POST("/cache", func(c *gin.Context) {
-		internal.PutToCache(c, cache)
+	r.GET("/cache/:key", func(ctx *gin.Context) {
+		internal.GetFromCache(ctx, cache)
+	})
+
+	r.POST("/cache", func(ctx *gin.Context) {
+		internal.PutToCache(ctx, cache)
 	})
 
 	if err := r.Run(":8080"); err != nil {
