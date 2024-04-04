@@ -7,15 +7,15 @@ import (
 )
 
 type CacheEntry struct {
-	key        string
-	value      interface{}
-	expiration time.Time
+	Key        string
+	Value      interface{}
+	Expiration time.Time
 }
 
 type LRUCache struct {
-	capacity   int
-	mutex      sync.Mutex
-	cacheMap   map[string]*list.Element
-	cacheList  *list.List
-	expiration time.Duration
+	Capacity   int
+	Mutex      sync.Mutex
+	CacheMap   map[string]*list.Element
+	CacheList  *list.List
+	Expiration time.Duration
 }

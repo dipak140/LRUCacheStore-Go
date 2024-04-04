@@ -9,14 +9,14 @@ import (
 
 func NewLRUCache(capacity int, expiration time.Duration) *LRUCache {
 	return &LRUCache{
-		capacity:   capacity,
-		cacheMap:   make(map[string]*list.Element),
-		cacheList:  list.New(),
-		expiration: expiration,
+		Capacity:   capacity,
+		CacheMap:   make(map[string]*list.Element),
+		CacheList:  list.New(),
+		Expiration: expiration,
 	}
 }
 
-func GetFromCache(ctx *gin.Context, c *LRUCache) {
+func GetFromCache(ctx *gin.Context, cache *LRUCache) {
 	key := ctx.Param("key")
 
 	if key == "" {
@@ -24,25 +24,29 @@ func GetFromCache(ctx *gin.Context, c *LRUCache) {
 		return
 	}
 
-	if elem, ok := c.cacheMap[key]; ok {
-		println("GERERe")
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
+
+	if elem, ok := cache.CacheMap[key]; ok {
 		entry := elem.Value.(*CacheEntry)
-		if entry.expiration.After(time.Now()) {
-			println("GERERe")
+		if entry.Expiration.After(time.Now()) {
+			println("here!")
 			// Move the accessed entry to the front of the list (most recently used)
-			c.cacheList.MoveToFront(elem)
-			ctx.JSON(200, gin.H{"value": entry.value})
+			cache.CacheList.MoveToFront(elem)
+			ctx.JSON(200, gin.H{"value": entry.Value})
 		} else {
 			// If the entry has expired, evict it from the cache
-			delete(c.cacheMap, key)
-			c.cacheList.Remove(elem)
+			delete(cache.CacheMap, key)
+			cache.CacheList.Remove(elem)
+			ctx.JSON(405, gin.H{"error": "Key expired"})
 		}
+	} else {
+		// Key not found in the cache
+		ctx.JSON(404, gin.H{"error": "Key not found in cache"})
 	}
-
-	ctx.JSON(400, gin.H{"error": "not found"})
 }
 
-func PutToCache(ctx *gin.Context, c *LRUCache) {
+func PutToCache(ctx *gin.Context, cache *LRUCache) {
 	var request struct {
 		Key   string      `json:"key" binding:"required"`
 		Value interface{} `json:"value" binding:"required"`
@@ -53,30 +57,30 @@ func PutToCache(ctx *gin.Context, c *LRUCache) {
 		return
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	cache.Mutex.Lock()
+	defer cache.Mutex.Unlock()
 
-	if elem, ok := c.cacheMap[request.Key]; ok {
-		c.cacheList.Remove(elem)
-		delete(c.cacheMap, request.Key)
+	if elem, ok := cache.CacheMap[request.Key]; ok {
+		cache.CacheList.Remove(elem)
+		delete(cache.CacheMap, request.Key)
 	}
 
-	if len(c.cacheMap) >= c.capacity {
-		c.evictLeastRecentlyUsed()
+	if len(cache.CacheMap) >= cache.Capacity {
+		cache.evictLeastRecentlyUsed()
 	}
 
-	expiration := time.Now().Add(c.expiration)
+	expiration := time.Now().Add(cache.Expiration)
 	entry := &CacheEntry{request.Key, request.Value, expiration}
-	elem := c.cacheList.PushFront(entry)
-	c.cacheMap[request.Key] = elem
+	elem := cache.CacheList.PushFront(entry)
+	cache.CacheMap[request.Key] = elem
 	ctx.Status(204)
 }
 
 // evictLeastRecentlyUsed removes the least recently used entry from the cache.
-func (c *LRUCache) evictLeastRecentlyUsed() {
-	if elem := c.cacheList.Back(); elem != nil {
+func (cache *LRUCache) evictLeastRecentlyUsed() {
+	if elem := cache.CacheList.Back(); elem != nil {
 		entry := elem.Value.(*CacheEntry)
-		delete(c.cacheMap, entry.key)
-		c.cacheList.Remove(elem)
+		delete(cache.CacheMap, entry.Key)
+		cache.CacheList.Remove(elem)
 	}
 }
