@@ -15,10 +15,12 @@ func main() {
 
 	r := gin.Default()
 
-	r.GET("/cache/:key", internal.GetFromCache)
+	r.GET("/cache/:key", func(ctx *gin.Context) {
+		internal.GetFromCache(ctx, cache)
+	})
 
-	r.POST("/cache", func(c *gin.Context) {
-		internal.PutToCache(c, cache)
+	r.POST("/cache", func(ctx *gin.Context) {
+		internal.PutToCache(ctx, cache)
 	})
 
 	if err := r.Run(":8080"); err != nil {
