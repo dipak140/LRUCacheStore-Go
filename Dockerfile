@@ -1,20 +1,20 @@
-# Use the official Golang image as a base image
+# Use the official golang image as the base
 FROM golang:latest
 
-# Set the Current Working Directory inside the container
+# Set a working directory for the application
 WORKDIR /app
 
-# Copy go mod and sum files
-COPY go.mod go.sum ./
+# Copy the Go source code (including go.mod and go.sum)
+COPY . .
+
+# Download Go dependencies
 RUN go mod download
 
-# Copy the source code from the current directory to the Working Directory inside the container
-COPY *.go ./
+# Build the Go binary (assuming main executable is in main.go)
+RUN go build -o main .
 
-# Build the Go app
-RUN go build -o /github.com/dipak140/LRUCacheStore-Go
-
+# Expose port 8080
 EXPOSE 8080
 
-# Command to run the executable
-CMD ["./github.com/dipak140/LRUCacheStore-Go"]
+# Set the command to run the application (entrypoint)
+CMD ["./main"]
