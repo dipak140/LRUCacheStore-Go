@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"container/list"
 	"sync"
 	"time"
 )
@@ -12,10 +11,19 @@ type CacheEntry struct {
 	Expiration time.Time
 }
 
+type ListNode struct {
+	prev, next *ListNode
+	entry      *CacheEntry
+}
+
+type DoublyLinkedList struct {
+	head, tail *ListNode
+}
+
 type LRUCache struct {
 	Capacity   int
 	Mutex      sync.Mutex
-	CacheMap   map[string]*list.Element
-	CacheList  *list.List
+	CacheMap   map[string]*ListNode
+	CacheList  *DoublyLinkedList
 	Expiration time.Duration
 }

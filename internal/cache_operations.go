@@ -1,18 +1,47 @@
 package internal
 
 import (
-	"container/list"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
+func NewDoublyLinkedList() *DoublyLinkedList {
+	return &DoublyLinkedList{}
+}
+
 func NewLRUCache(capacity int, expiration time.Duration) *LRUCache {
 	return &LRUCache{
 		Capacity:   capacity,
-		CacheMap:   make(map[string]*list.Element),
-		CacheList:  list.New(),
+		CacheMap:   make(map[string]*ListNode),
+		CacheList:  NewDoublyLinkedList(),
 		Expiration: expiration,
+	}
+}
+
+func (dll *DoublyLinkedList) PushFront(entry *CacheEntry) *ListNode {
+	node := &ListNode{entry: entry}
+	if dll.head == nil {
+		dll.head = node
+		dll.tail = node
+	} else {
+		node.next = dll.head
+		dll.head.prev = node
+		dll.head = node
+	}
+	return node
+}
+
+func (dll *DoublyLinkedList) Remove(node *ListNode) {
+	if node.prev != nil {
+		node.prev.next = node.next
+	} else {
+		dll.head = node.next
+	}
+	if node.next != nil {
+		node.next.prev = node.prev
+	} else {
+		dll.tail = node.prev
 	}
 }
 
@@ -28,11 +57,13 @@ func GetFromCache(ctx *gin.Context, cache *LRUCache) {
 	defer cache.Mutex.Unlock()
 
 	if elem, ok := cache.CacheMap[key]; ok {
-		entry := elem.Value.(*CacheEntry)
+		entry := elem.entry
 		if entry.Expiration.After(time.Now()) {
 			println("here!")
 			// Move the accessed entry to the front of the list (most recently used)
-			cache.CacheList.MoveToFront(elem)
+			cache.CacheList.Remove(elem)
+			newNode := cache.CacheList.PushFront(entry)
+			cache.CacheMap[key] = newNode
 			ctx.JSON(200, gin.H{"value": entry.Value})
 		} else {
 			// If the entry has expired, evict it from the cache
@@ -78,9 +109,8 @@ func PutToCache(ctx *gin.Context, cache *LRUCache) {
 
 // evictLeastRecentlyUsed removes the least recently used entry from the cache.
 func (cache *LRUCache) evictLeastRecentlyUsed() {
-	if elem := cache.CacheList.Back(); elem != nil {
-		entry := elem.Value.(*CacheEntry)
-		delete(cache.CacheMap, entry.Key)
-		cache.CacheList.Remove(elem)
+	if cache.CacheList.tail != nil {
+		delete(cache.CacheMap, cache.CacheList.tail.entry.Key)
+		cache.CacheList.Remove(cache.CacheList.tail)
 	}
 }
